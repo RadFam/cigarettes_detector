@@ -8,6 +8,7 @@ from tensorflow.keras.losses import MeanSquaredError
 from tensorflow.keras.callbacks import EarlyStoppping
 from tensorflow.kears.callbacks import ModelCheckpoint
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
 
@@ -31,9 +32,11 @@ optimizer = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 loss = MeanSquaredError()
 metrics = [MeanSquaredError()]
 
-callback = EarlyStoppping(monitor='loss', patience=1, min_delta=1e-02, )
+callback = EarlyStoppping(monitor='loss', patience=1, min_delta=1e-02)
+checkpoint = ModelCheckpoint(filepath='\\train_logs', save_weights_only=True, monitor='val_accuracy', save_best_only=True, model='min')
 
 final_model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
+history = final_model.fit(epochs=5, batch_size=5, callbacks=[callback], checkpoints=[checkpoint], verbose=1)
 
 
 model.summary()

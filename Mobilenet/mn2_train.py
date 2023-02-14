@@ -1,5 +1,7 @@
 import os
 import tensorflow as tf
+import pandas as pd
+import cv2
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
@@ -36,7 +38,29 @@ callback = EarlyStoppping(monitor='loss', patience=1, min_delta=1e-02)
 checkpoint = ModelCheckpoint(filepath='\\train_logs', save_weights_only=True, monitor='val_accuracy', save_best_only=True, model='min')
 
 final_model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
-history = final_model.fit(epochs=5, batch_size=5, callbacks=[callback], checkpoints=[checkpoint], verbose=1)
+
+batch = 5
+epochs = 5
+
+# load train and valid datasets
+data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train.csv")
+data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid.csv")
+
+train_targets = data_train[['x_1', 'y_1', 'x_2', 'y_2']]
+train_features = cv2.imread(data_train['filename'])
+train_features = cv2.cvtColor(train_features, cv2.COLOR_BGR2RGB)
+
+valid_targets = data_valid[['x_1', 'y_1', 'x_2', 'y_2']]
+valid_features = cv2.imread(data_valid['filename'])
+valid_features = cv2.cvtColor(valid_features, cv2.COLOR_BGR2RGB)
+
+train_datagen = ImageDataGenerator()
+valid_datagen = ImageDataGenerator()
+
+train_generator = train_datagen.flow(train_features, train_targets, batch_size=batch)
+valid_generator = valid_datagen.flow(valid_features, valid_targets, batch_size=batch)
+
+history = final_model.fit(train_generator, validation_data=valid_generator, epochs=epochs, batch_size=batch, callbacks=[callback], checkpoints=[checkpoint], verbose=1)
 
 
 model.summary()

@@ -7,8 +7,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import MeanSquaredError
 from tensorflow.keras.losses import MeanSquaredError
-from tensorflow.keras.callbacks import EarlyStoppping
-from tensorflow.kears.callbacks import ModelCheckpoint
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
@@ -34,7 +33,7 @@ optimizer = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 loss = MeanSquaredError()
 metrics = [MeanSquaredError()]
 
-callback = EarlyStoppping(monitor='loss', patience=1, min_delta=1e-02)
+callback = EarlyStopping(monitor='loss', patience=1, min_delta=1e-02)
 checkpoint = ModelCheckpoint(filepath='\\train_logs', save_weights_only=True, monitor='val_accuracy', save_best_only=True, model='min')
 
 final_model.compile(loss=loss, optimizer=optimizer, metrics=metrics)
@@ -47,12 +46,18 @@ data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train.c
 data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid.csv")
 
 train_targets = data_train[['x_1', 'y_1', 'x_2', 'y_2']]
-train_features = cv2.imread(data_train['filename'])
-train_features = cv2.cvtColor(train_features, cv2.COLOR_BGR2RGB)
+train_features = []
+for index, row in data_train.iterrows():
+    img = cv2.imread(row['filename'])
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    train_features.append(img)
 
 valid_targets = data_valid[['x_1', 'y_1', 'x_2', 'y_2']]
-valid_features = cv2.imread(data_valid['filename'])
-valid_features = cv2.cvtColor(valid_features, cv2.COLOR_BGR2RGB)
+valid_features = []
+for index, row in data_valid.iterrows():
+    img = cv2.imread(row['filename'])
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    valid_features.append(img)
 
 train_datagen = ImageDataGenerator()
 valid_datagen = ImageDataGenerator()

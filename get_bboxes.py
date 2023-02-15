@@ -12,7 +12,7 @@ filename = upperfolder + "\\cig_butts\\train\\coco_annotations.json"
 with open(filename, 'r') as jsn_file:
     jsn_data = json.load(jsn_file)
 
-img_data = [(upperfolder + "\\cig_butts\\train\\images" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
+img_data = [(upperfolder + "\\cig_butts\\train\\images\\" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
 img_bbox = [(k['bbox'], k['image_id']) for k in jsn_data['annotations']]
 
 full_data = []
@@ -33,7 +33,7 @@ filename = upperfolder + "\\cig_butts\\val\\coco_annotations.json"
 with open(filename, 'r') as jsn_file:
     jsn_data = json.load(jsn_file)
 
-img_data = [(upperfolder + "\\cig_butts\\val\\images" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
+img_data = [(upperfolder + "\\cig_butts\\val\\images\\" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
 img_bbox = [(k['bbox'], k['image_id']) for k in jsn_data['annotations']]
 
 full_data = []

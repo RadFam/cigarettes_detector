@@ -11,6 +11,9 @@ from tensorflow.keras.metrics import MeanSquaredError
 from tensorflow.keras.losses import MeanSquaredError
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
+BATCH = 5
+EPOCHS = 15
+
 # os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
 # dot_img_file = 'model_1.png'
 
@@ -107,8 +110,41 @@ def create_unet(init_shape=(224, 224, 3)):
 
     x_1, y_1 = full_layer_block(x, 64)
 
-    x_2, y_2 = full_layer_block(x, 128)
+    x_2, y_2 = full_layer_block(y_1, 128)
 
-    x_3, y_3 = full_layer_block(x, 256)
+    x_3, y_3 = full_layer_block(y_2, 256)
 
-    x_4, y_4 = full_layer_block(x, 512)
+    x_4, y_4 = full_layer_block(y_3, 512)
+
+    bottleneck = double_conv_block(y_4, 1024)
+
+    z_6 = upsample_block(bottleneck, x_4, 512)
+
+    z_7 = upsample_block(z_6, x_3, 256)
+
+    z_8 = upsample_block(z_7, x_2, 128)
+
+    z_9 = upsample_block(z_8, x_1, 64)
+
+    output = Conv2D(1, kernel_size=(3,3), stride=1, padding="same", activation="softmax")(z_9)
+
+    full_model = Model(x, output, name="UNet")
+
+    return full_model
+
+def read_train(data_train):
+    cnt = 0
+    while True:
+        image_data = []
+        mask_data = []
+        for k in range(BATCH):
+            if k == len(data_train):
+                k = 0
+            image_filename = data_train.iloc[cnt, data_train.columns.get_loc("filename")]
+            
+
+def read_valid(data_valid):
+    pass
+
+data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train.csv")
+data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid.csv")

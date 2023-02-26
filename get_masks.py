@@ -25,7 +25,7 @@ with open(filename, 'r') as jsn_file:
     jsn_data = json.load(jsn_file)
 
 print(jsn_data.keys())
-img_data = [(upperfolder + "\\cig_butts\\train\\images" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
+img_data = [(upperfolder + "\\cig_butts\\train\\images\\" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
 img_masks = [(k['segmentation'], k['image_id']) for k in jsn_data['annotations']]
 
 # create folder
@@ -53,7 +53,7 @@ with open(filename, 'r') as jsn_file:
     jsn_data = json.load(jsn_file)
 
 print(jsn_data.keys())
-img_data = [(upperfolder + "\\cig_butts\\val\\images" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
+img_data = [(upperfolder + "\\cig_butts\\val\\images\\" + k['file_name'], (k['width'], k['height']), k['id']) for k in jsn_data['images']]
 img_masks = [(k['segmentation'], k['image_id']) for k in jsn_data['annotations']]
 
 # create folder

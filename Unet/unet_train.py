@@ -1,8 +1,11 @@
 import os
-import tensorflow as tf
 import pandas as pd
 import cv2
 import numpy as np
+
+import tensorflow as tf
+import tensorflow.keras.backend as K
+
 from tensorflow.keras import layers
 from tensorflow.keras.layers import Input, Conv2D, Conv2DTranspose, MaxPooling2D, concatenate, Dropout
 from tensorflow.keras.models import Model
@@ -10,6 +13,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Accuracy
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+
 
 BATCH = 10
 EPOCHS = 3
@@ -228,3 +232,13 @@ full_model.fit_generator(read_train(data_train),
                                    #callbacks=[tensorboard_callback]) # steps_per_epoch=len(data_train) // BATCH, validation_steps=len(data_valid) // BATCH, epochs=EPOCHS
 
 full_model.save('unet_model.h5')
+
+def dice_lost(y_pred, y_true):
+    y_pred = tf.argmax(y_pred, axis=-1)
+    y_pred = y_pred[..., tf.newaxis]
+    y_pred = y_pred[0]
+    y_pred_f = K.flatten(y_pred)
+    y_true_f = K.flatten(y_true)
+    intersection = K.sum(y_pred_f * y_true_f)
+    dice = (2.0 * intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
+    return dice

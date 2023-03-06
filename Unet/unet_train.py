@@ -12,10 +12,16 @@ from tensorflow.keras.losses import SparseCategoricalCrossentropy
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 BATCH = 10
-EPOCHS = 15
+EPOCHS = 3
 
-os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
-dot_img_file = 'model_2.png'
+#tf.config.run_functions_eagerly(True)
+#tf.debugging.experimental.enable_dump_debug_info("tfdbg2_logdir", tensor_debug_mode="NO_TENSOR", circular_buffer_size=-1)
+#tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs", histogram_freq=1)
+
+
+
+#os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
+#dot_img_file = 'model_2.png'
 
 # def get_model(img_size, num_classes):
 #     inputs = Input(shape=img_size + (3,))
@@ -93,7 +99,7 @@ def full_layer_block(x, num_filetrs):
 
     x_1 = double_conv_block(x, num_filetrs)
     x_2 = MaxPooling2D(pool_size=(2,2))(x_1)
-    x_2 = Dropout(0.3)(x_2)
+    #x_2 = Dropout(0.3)(x_2)
 
     return x_1, x_2
 
@@ -101,7 +107,7 @@ def upsample_block(x, y, num_filters):
 
     x = Conv2DTranspose(num_filters, kernel_size=3, strides=(2,2), padding="same", activation="relu")(x)
     x = concatenate([x, y])
-    x = Dropout(0.3)(x)
+    #x = Dropout(0.3)(x)
     x = double_conv_block(x, num_filters)
 
     return x
@@ -128,7 +134,7 @@ def create_unet(init_shape=(224, 224, 3)):
 
     z_9 = upsample_block(z_8, x_1, 64)
 
-    output = Conv2D(1, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
+    output = Conv2D(2, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
 
     full_model = Model(x, output, name="UNet")
 
@@ -140,8 +146,8 @@ def read_train(data_train):
         image_data = []
         mask_data = []
         for k in range(BATCH):
-            if k == len(data_train):
-                k = 0
+            if cnt == len(data_train):
+                cnt = 0
 
             image_filename = data_train.iloc[cnt, data_train.columns.get_loc("image_path")]
             mask_filename = data_train.iloc[cnt, data_train.columns.get_loc("mask_path")]
@@ -155,8 +161,9 @@ def read_train(data_train):
             mask = cv2.imread(mask_filename)
             mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
             mask = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_LANCZOS4)
-            mask = mask / 255.0
+            mask = mask / 255
             mask = np.expand_dims(mask, axis=-1)
+            mask = mask.astype('uint32')
             mask_data.append(mask)
 
             cnt += 1
@@ -173,8 +180,8 @@ def read_valid(data_valid):
         image_data = []
         mask_data = []
         for k in range(BATCH):
-            if k == len(data_valid):
-                k = 0
+            if cnt == len(data_valid):
+                cnt = 0
 
             image_filename = data_valid.iloc[cnt, data_valid.columns.get_loc("image_path")]
             mask_filename = data_valid.iloc[cnt, data_valid.columns.get_loc("mask_path")]
@@ -188,8 +195,9 @@ def read_valid(data_valid):
             mask = cv2.imread(mask_filename)
             mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
             mask = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_LANCZOS4)
-            mask = mask / 255.0
+            mask = mask / 255
             mask = np.expand_dims(mask, axis=-1)
+            mask = mask.astype('uint32')
             mask_data.append(mask)
 
             cnt += 1
@@ -204,17 +212,19 @@ data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid_i
 
 full_model = create_unet()
 
-tf.keras.utils.plot_model(full_model, to_file=dot_img_file, show_shapes=True)
+#tf.keras.utils.plot_model(full_model, to_file=dot_img_file, show_shapes=True)
 
 optimizer = Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-loss = SparseCategoricalCrossentropy()
+loss = SparseCategoricalCrossentropy(from_logits=True)
 metrics = Accuracy()
 
-full_model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics="accuracy")
-history = full_model.fit_generator(read_train(data_train), 
+full_model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics="sparse_categorical_accuracy")
+full_model.fit_generator(read_train(data_train), 
                                    steps_per_epoch=len(data_train) // BATCH,
                                    validation_data = read_valid(data_valid),
                                    validation_steps=len(data_valid) // BATCH,
-                                   epochs=EPOCHS)
+                                   epochs=EPOCHS,
+                                )
+                                   #callbacks=[tensorboard_callback]) # steps_per_epoch=len(data_train) // BATCH, validation_steps=len(data_valid) // BATCH, epochs=EPOCHS
 
 full_model.save('unet_model.h5')

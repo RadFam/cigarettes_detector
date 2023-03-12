@@ -18,17 +18,6 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 BATCH = 10
 EPOCHS = 5
 
-#tf.config.run_functions_eagerly(True)
-#tf.debugging.experimental.enable_dump_debug_info("tfdbg2_logdir", tensor_debug_mode="NO_TENSOR", circular_buffer_size=-1)
-#tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs", histogram_freq=1)
-
-
-#os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
-#dot_img_file = 'model_2.png'
-
-
-# tf.keras.utils.plot_model(model, to_file=dot_img_file, show_shapes=True)
-
 def double_conv_block(x, num_filters):
 
     x = Conv2D(num_filters, kernel_size=3, strides=(1,1), activation='relu', padding='same', kernel_initializer='he_normal')(x)
@@ -75,7 +64,7 @@ def create_unet(init_shape=(224, 224, 3)):
 
     z_9 = upsample_block(z_8, x_1, 64)
 
-    output = Conv2D(2, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
+    output = Conv2D(1, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
 
     full_model = Model(x, output, name="UNet")
 
@@ -148,6 +137,17 @@ def read_valid(data_valid):
 
         yield [image_data, mask_data]
 
+
+def dice_lost(y_true, y_pred, smooth=1e-6):
+    y_pred = K.cast(y_pred, dtype=tf.float32)
+    y_true = K.cast(y_true, dtype=tf.float32)
+
+    y_pred_f = K.flatten(y_pred)
+    y_true_f = K.flatten(y_true)
+    intersection = K.sum(y_pred_f * y_true_f)
+    dice = (2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+    return 1 - dice
+
 data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train_image_mask.csv")
 data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid_image_mask.csv")
 
@@ -159,13 +159,13 @@ optimizer = Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 loss = SparseCategoricalCrossentropy(from_logits=True)
 metrics = Accuracy()
 
-full_model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics="sparse_categorical_accuracy")
+full_model.compile(optimizer=optimizer, loss=dice_lost, metrics="sparse_categorical_accuracy")
 full_model.fit_generator(read_train(data_train), 
                                    steps_per_epoch=len(data_train) // BATCH,
                                    validation_data = read_valid(data_valid),
                                    validation_steps=len(data_valid) // BATCH,
                                    epochs=EPOCHS,
                                 )
-                                   #callbacks=[tensorboard_callback]) # steps_per_epoch=len(data_train) // BATCH, validation_steps=len(data_valid) // BATCH, epochs=EPOCHS
+                                
 
 full_model.save('unet_model.h5')

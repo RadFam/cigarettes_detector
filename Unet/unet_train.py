@@ -16,78 +16,15 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 
 BATCH = 10
-EPOCHS = 3
+EPOCHS = 5
 
 #tf.config.run_functions_eagerly(True)
 #tf.debugging.experimental.enable_dump_debug_info("tfdbg2_logdir", tensor_debug_mode="NO_TENSOR", circular_buffer_size=-1)
 #tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="logs", histogram_freq=1)
 
 
-
 #os.environ['PATH'] = os.environ['PATH']+';' + r"D:\\Distribs\\Graphviz\\bin"
 #dot_img_file = 'model_2.png'
-
-# def get_model(img_size, num_classes):
-#     inputs = Input(shape=img_size + (3,))
-
-#     ### [First half of the network: downsampling inputs] ###
-
-#     # Entry block
-#     x = layers.Conv2D(32, 3, strides=2, padding="same")(inputs)
-#     x = layers.BatchNormalization()(x)
-#     x = layers.Activation("relu")(x)
-
-#     previous_block_activation = x  # Set aside residual
-
-#     # Blocks 1, 2, 3 are identical apart from the feature depth.
-#     for filters in [64, 128, 256]:
-#         x = layers.Activation("relu")(x)
-#         x = layers.SeparableConv2D(filters, 3, padding="same")(x)
-#         x = layers.BatchNormalization()(x)
-
-#         x = layers.Activation("relu")(x)
-#         x = layers.SeparableConv2D(filters, 3, padding="same")(x)
-#         x = layers.BatchNormalization()(x)
-
-#         x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
-
-#         # Project residual
-#         residual = layers.Conv2D(filters, 1, strides=2, padding="same")(
-#             previous_block_activation
-#         )
-#         x = layers.add([x, residual])  # Add back residual
-#         previous_block_activation = x  # Set aside next residual
-
-#     ### [Second half of the network: upsampling inputs] ###
-
-#     for filters in [256, 128, 64, 32]:
-#         x = layers.Activation("relu")(x)
-#         x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
-#         x = layers.BatchNormalization()(x)
-
-#         x = layers.Activation("relu")(x)
-#         x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
-#         x = layers.BatchNormalization()(x)
-
-#         x = layers.UpSampling2D(2)(x)
-
-#         # Project residual
-#         residual = layers.UpSampling2D(2)(previous_block_activation)
-#         residual = layers.Conv2D(filters, 1, padding="same")(residual)
-#         x = layers.add([x, residual])  # Add back residual
-#         previous_block_activation = x  # Set aside next residual
-
-#     # Add a per-pixel classification layer
-#     outputs = layers.Conv2D(num_classes, 3, activation="softmax", padding="same")(x)
-
-#     # Define the model
-#     model = Model(inputs, outputs)
-#     return model
-
-
-# # Build model
-# model = get_model((224, 224), 2)
-
 
 
 # tf.keras.utils.plot_model(model, to_file=dot_img_file, show_shapes=True)
@@ -103,7 +40,7 @@ def full_layer_block(x, num_filetrs):
 
     x_1 = double_conv_block(x, num_filetrs)
     x_2 = MaxPooling2D(pool_size=(2,2))(x_1)
-    #x_2 = Dropout(0.3)(x_2)
+    x_2 = Dropout(0.3)(x_2)
 
     return x_1, x_2
 
@@ -111,7 +48,7 @@ def upsample_block(x, y, num_filters):
 
     x = Conv2DTranspose(num_filters, kernel_size=3, strides=(2,2), padding="same", activation="relu")(x)
     x = concatenate([x, y])
-    #x = Dropout(0.3)(x)
+    x = Dropout(0.3)(x)
     x = double_conv_block(x, num_filters)
 
     return x
@@ -211,6 +148,23 @@ def read_valid(data_valid):
 
         yield [image_data, mask_data]
 
+
+def dice_lost(y_true, y_pred, smooth=1e-6):
+    # y_pr = y_pred
+    # y_pred = tf.argmax(y_pred, axis=-1)
+    # y_pred = y_pred[..., tf.newaxis]
+    y_pred = K.cast(y_pred, dtype=tf.float32)
+    y_true = K.cast(y_true, dtype=tf.float32)
+
+    y_pred_f = K.flatten(y_pred)
+    #tf.print(y_pred.shape)
+    y_true_f = K.flatten(y_true)
+    #tf.print(y_true.shape)
+    intersection = K.sum(y_pred_f * y_true_f)
+    dice = (2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+    # return 1 - dice
+    return 1 - dice
+
 data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train_image_mask.csv")
 data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid_image_mask.csv")
 
@@ -222,7 +176,7 @@ optimizer = Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 loss = SparseCategoricalCrossentropy(from_logits=True)
 metrics = Accuracy()
 
-full_model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics="sparse_categorical_accuracy")
+full_model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics="sparse_categorical_accuracy")
 full_model.fit_generator(read_train(data_train), 
                                    steps_per_epoch=len(data_train) // BATCH,
                                    validation_data = read_valid(data_valid),
@@ -232,13 +186,3 @@ full_model.fit_generator(read_train(data_train),
                                    #callbacks=[tensorboard_callback]) # steps_per_epoch=len(data_train) // BATCH, validation_steps=len(data_valid) // BATCH, epochs=EPOCHS
 
 full_model.save('unet_model.h5')
-
-def dice_lost(y_pred, y_true):
-    y_pred = tf.argmax(y_pred, axis=-1)
-    y_pred = y_pred[..., tf.newaxis]
-    y_pred = y_pred[0]
-    y_pred_f = K.flatten(y_pred)
-    y_true_f = K.flatten(y_true)
-    intersection = K.sum(y_pred_f * y_true_f)
-    dice = (2.0 * intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
-    return dice

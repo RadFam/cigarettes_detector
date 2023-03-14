@@ -138,15 +138,15 @@ def read_valid(data_valid):
         yield [image_data, mask_data]
 
 
-def dice_lost(y_true, y_pred, smooth=1e-6):
+def dice_lost(y_true, y_pred, smooth=1e-3):
     y_pred = K.cast(y_pred, dtype=tf.float32)
     y_true = K.cast(y_true, dtype=tf.float32)
 
     y_pred_f = K.flatten(y_pred)
     y_true_f = K.flatten(y_true)
     intersection = K.sum(y_pred_f * y_true_f)
-    dice = (2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
-    return 1 - dice
+    dice = K.mean((2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth))
+    return dice
 
 data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train_image_mask.csv")
 data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid_image_mask.csv")
@@ -155,9 +155,7 @@ full_model = create_unet()
 
 #tf.keras.utils.plot_model(full_model, to_file=dot_img_file, show_shapes=True)
 
-optimizer = Adam(learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
-loss = SparseCategoricalCrossentropy(from_logits=True)
-metrics = Accuracy()
+optimizer = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 
 full_model.compile(optimizer=optimizer, loss=dice_lost, metrics="sparse_categorical_accuracy")
 full_model.fit_generator(read_train(data_train), 
@@ -168,4 +166,4 @@ full_model.fit_generator(read_train(data_train),
                                 )
                                 
 
-full_model.save('unet_model.h5')
+full_model.save('unet_model_dice.h5')

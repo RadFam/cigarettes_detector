@@ -8,7 +8,7 @@ def create_mask(pred_mask):
     pred_mask = pred_mask[..., tf.newaxis]
     return pred_mask[0]
 
-filename = 'D:\\DA_Projects\\CV_Projects\\Cigarettes\\cig_butts\\real_test\\0009.JPG'
+filename = 'D:\\DA_Projects\\CV_Projects\\Cigarettes\\cig_butts\\real_test\\0003.JPG'
 img = cv2.imread(filename)
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 img = cv2.resize(img, (224, 224), interpolation=cv2.INTER_LANCZOS4)

@@ -7,7 +7,7 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 from tensorflow.keras import layers
-from tensorflow.keras.layers import Input, Conv2D, Conv2DTranspose, MaxPooling2D, concatenate, Dropout
+from tensorflow.keras.layers import Input, Conv2D, Conv2DTranspose, MaxPooling2D, concatenate, Dropout, Activation, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import Accuracy
@@ -20,8 +20,14 @@ EPOCHS = 5
 
 def double_conv_block(x, num_filters):
 
-    x = Conv2D(num_filters, kernel_size=3, strides=(1,1), activation='relu', padding='same', kernel_initializer='he_normal')(x)
-    x = Conv2D(num_filters, kernel_size=3, strides=(1,1), activation='relu', padding='same', kernel_initializer='he_normal')(x)
+    #x = Conv2D(num_filters, kernel_size=3, strides=(1,1), activation='relu', padding='same', kernel_initializer='he_normal')(x)
+    #x = Conv2D(num_filters, kernel_size=3, strides=(1,1), activation='relu', padding='same', kernel_initializer='he_normal')(x)
+    x = Conv2D(num_filters, kernel_size=3, strides=(1,1), padding='same', kernel_initializer='he_normal')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
+    x = Conv2D(num_filters, kernel_size=3, strides=(1,1), padding='same', kernel_initializer='he_normal')(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
 
     return x
 
@@ -29,15 +35,18 @@ def full_layer_block(x, num_filetrs):
 
     x_1 = double_conv_block(x, num_filetrs)
     x_2 = MaxPooling2D(pool_size=(2,2))(x_1)
-    x_2 = Dropout(0.3)(x_2)
+    #x_2 = Dropout(0.3)(x_2)
 
     return x_1, x_2
 
 def upsample_block(x, y, num_filters):
 
-    x = Conv2DTranspose(num_filters, kernel_size=3, strides=(2,2), padding="same", activation="relu")(x)
+    #x = Conv2DTranspose(num_filters, kernel_size=3, strides=(2,2), padding="same", activation="relu")(x)
+    x = Conv2DTranspose(num_filters, kernel_size=3, strides=(2,2), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = Activation('relu')(x)
     x = concatenate([x, y])
-    x = Dropout(0.3)(x)
+    #x = Dropout(0.3)(x)
     x = double_conv_block(x, num_filters)
 
     return x
@@ -64,7 +73,7 @@ def create_unet(init_shape=(224, 224, 3)):
 
     z_9 = upsample_block(z_8, x_1, 64)
 
-    output = Conv2D(1, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
+    output = Conv2D(2, kernel_size=(1,1), padding="same", activation="softmax", kernel_initializer='he_normal')(z_9)
 
     full_model = Model(x, output, name="UNet")
 
@@ -148,6 +157,9 @@ def dice_lost(y_true, y_pred, smooth=1e-3):
     dice = K.mean((2.0 * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth))
     return dice
 
+def dice_coef(y_true, y_pred):
+    return (2. * K.sum(y_true * y_pred) + 1.) / (K.sum(y_true) + K.sum(y_pred) + 1.)
+
 data_train = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\train_image_mask.csv")
 data_valid = pd.read_csv(os.path.dirname(os.path.dirname(__file__)) + "\\valid_image_mask.csv")
 
@@ -157,7 +169,7 @@ full_model = create_unet()
 
 optimizer = Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
 
-full_model.compile(optimizer=optimizer, loss=dice_lost, metrics="sparse_categorical_accuracy")
+full_model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=[dice_coef])
 full_model.fit_generator(read_train(data_train), 
                                    steps_per_epoch=len(data_train) // BATCH,
                                    validation_data = read_valid(data_valid),
